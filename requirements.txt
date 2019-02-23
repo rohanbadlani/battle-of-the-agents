@@ -20,12 +20,16 @@ grpcio==1.18.0
 -e git+https://github.com/openai/gym.git@17abad35ae82cf01ff4dc962ffd63e3d849d3903#egg=gym
 html5lib==0.9999999
 idna==2.8
+imageio==2.5.0
 joblib==0.13.2
+kiwisolver==1.0.1
 Markdown==3.0.1
-matplotlib==2.0.2
+matplotlib==3.0.2
+mkl-fft==1.0.10
+mkl-random==1.0.2
 more-itertools==6.0.0
 mpi4py==3.0.1
-numpy==1.14.2
+numpy==1.15.4
 opencv-python==4.0.0.21
 pandas==0.24.1
 Pillow==5.4.1
@@ -45,11 +49,12 @@ pyzmq==18.0.0
 requests==2.21.0
 scipy==1.2.1
 seaborn==0.9.0
-six==1.11.0
+six==1.12.0
 stable-baselines==2.4.1
 tensorboard==1.7.0
 tensorflow==1.7.1
 termcolor==1.1.0
+tornado==5.1.1
 tqdm==4.31.1
 urllib3==1.24.1
 Werkzeug==0.14.1
