@@ -23,6 +23,7 @@ Conda:
 ```
 conda create --name cs234-project python=3.6.7
 conda activate cs234-project
+conda install matplotlib
 ```
 
 Normal Virtualenv:
