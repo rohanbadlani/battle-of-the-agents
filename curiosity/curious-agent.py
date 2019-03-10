@@ -17,6 +17,8 @@ from rl.callbacks import TrainEpisodeLogger, ModelIntervalCheckpoint
 from rl.util import load_demo_data_from_file
 from record_demonstrations import demonstrate, reward_threshold_subset
 
+from rl.agents.curious_agent import CuriousDQNAgent
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode',choices=['train','test','demonstrate'],default='test')
 parser.add_argument('--model',choices=['student','expert'],default='expert')
@@ -63,6 +65,24 @@ e_dense3 = Dense(64, activation='relu')(e_dense2)
 e_actions = Dense(nb_actions, activation='linear')(e_dense3)
 expert_model = Model(inputs=sensors, outputs=e_actions)
 
+#7 since 1 action and 6 state dims
+curiosity_forward_model_input_shape = (WINDOW_LENGTH, 7)
+curious_forward_inputs = Input(shape=(curiosity_forward_model_input_shape))
+curious_forward_flatten = Flatten()(curious_forward_inputs)
+curious_forward_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_flatten)
+#6 since in Lunar Lander 6 state dim
+curious_forward_fc2 = Dense(6, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_flatten)
+curiosity_forward_model = Model(inputs=curious_forward_inputs, outputs=curious_forward_fc2)
+
+#12 since 6 --> s_t, 6 --> s_t+1 
+curiosity_inverse_model_input_shape = (WINDOW_LENGTH, 12)
+curious_inverse_inputs = Input(shape=(curiosity_inverse_model_input_shape))
+curious_inverse_flatten = Flatten()(curious_inverse_inputs)
+curious_inverse_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_flatten)
+#predicting actions.
+curious_inverse_fc2 = Dense(nb_actions, activation='linear', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
+curiosity_inverse_model = Model(inputs=curious_inverse_inputs, outputs=curious_inverse_fc2)
+
 processor = RocketProcessor()
 model_saves = './demonstrations/'
 
@@ -106,7 +126,7 @@ if __name__ == "__main__":
         policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_min=.02, value_test=.01,
                                       nb_steps=1000000)
         # agent
-        dqn = DQNAgent(model=expert_model, nb_actions=nb_actions, policy=policy, memory=memory,
+        dqn = CuriousDQNAgent(model=expert_model, curiosity_forward_model=curiosity_forward_model, curiosity_inverse_model=curiosity_inverse_model, nb_actions=nb_actions, policy=policy, memory=memory,
                        processor=processor, enable_double_dqn=True, enable_dueling_network=True, gamma=.99, target_model_update=10000,
                        train_interval=1, delta_clip=1., nb_steps_warmup=50000)
 
