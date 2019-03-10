@@ -1,12 +1,12 @@
 #!/bin/bash          
 
-ENV="FetchPickAndPlace-v0"
+ENV_NAME="FetchPickAndPlace-v1"
 LOG_DIR="logs"
 MODEL_DIR="models"
 PLOT_DIR="plots"
 
-TRAIN_TIMESTEPS="100000"
-EVAL_TIMESTEPS="10000"
+TRAIN_TIMESTEPS="1000000"
+EVAL_TIMESTEPS="100000"
 
 RESULTS_DIR="FetchPickAndPlace-results"
 
