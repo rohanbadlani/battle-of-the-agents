@@ -1,0 +1,3 @@
+[submodule "meta-keras-rl/keras-rl"]
+	path = meta-keras-rl/keras-rl
+	url = https://github.com/rohanbadlani/keras-rl.git
