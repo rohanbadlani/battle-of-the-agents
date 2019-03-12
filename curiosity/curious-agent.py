@@ -67,6 +67,7 @@ e_dense3 = Dense(64, activation='relu')(e_dense2)
 e_actions = Dense(nb_actions, activation='linear')(e_dense3)
 expert_model = Model(inputs=sensors, outputs=e_actions)
 
+#### FORWARD MODEL ########
 #Window length is number of consecutive states to capture in a single observation
 curiosity_forward_model_input_shape_state = (WINDOW_LENGTH, LL_state_size)
 curious_forward_inputs_state = Input(shape=(curiosity_forward_model_input_shape_state))
@@ -81,12 +82,14 @@ curious_forward_concat = Concatenate([curious_forward_flatten_state, curious_for
 
 curious_forward_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_concat)
 
-#output is length 16, since observation is 2x8
-curious_forward_fc2 = Dense(WINDOW_LENGTH*LL_state_size, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_fc1)
+#output is length 16, since observation is 2x8; activation is just identity since state can take on any value
+curious_forward_fc2 = Dense(WINDOW_LENGTH*LL_state_size, activation='linear', kernel_regularizer=l2(.0001))(curious_forward_fc1)
 curious_reshape_output = Reshape((WINDOW_LENGTH,LL_state_size), input_shape=(WINDOW_LENGTH*LL_state_size,))
 curiosity_forward_model = Model(inputs=[curious_forward_inputs_state, curious_forward_inputs_action], outputs=curious_reshape_output)
+########## END FORWARD MODEL ##########
 
 
+############ INVERSE MODEL ##########
 curiosity_inverse_model_input_shape = (WINDOW_LENGTH, LL_state_size)
 curious_inverse_input_st = Input(shape=(curiosity_inverse_model_input_shape))
 curious_inverse_flatten_st = Flatten()(curious_inverse_input_st)
@@ -97,9 +100,9 @@ curious_inverse_flatten_next_st = Flatten()(curious_inverse_input_next_st)
 curious_inverse_fullinput = Concatenate([curious_inverse_flatten_st, curious_inverse_flatten_next_st])
 
 curious_inverse_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
-#predicting actions.
-curious_inverse_fc2 = Dense(nb_actions, activation='linear', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
+curious_inverse_fc2 = Dense(nb_actions, activation='softmax', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
 curiosity_inverse_model = Model(inputs=[curious_inverse_input_st, curious_inverse_input_next_st], outputs=curious_inverse_fc2)
+######## END INVERSE MODEL ################
 
 processor = RocketProcessor()
 model_saves = './demonstrations/'
@@ -137,7 +140,38 @@ if __name__ == "__main__":
         if args.mode == 'demonstrate':
             print("DQfD cannot demonstrate.")
 
+    ##keeping this as originally
     if args.model == 'expert':
+            # memory
+            memory = PrioritizedMemory(limit=500000, alpha=.6, start_beta=.4, end_beta=.4, steps_annealed=5000000, window_length=WINDOW_LENGTH)
+            # policy
+            policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_min=.02, value_test=.01,
+                                          nb_steps=1000000)
+            # agent
+            dqn = DQNAgent(model=expert_model, nb_actions=nb_actions, policy=policy, memory=memory,
+                           processor=processor, enable_double_dqn=True, enable_dueling_network=True, gamma=.99, target_model_update=10000,
+                           train_interval=1, delta_clip=1., nb_steps_warmup=50000)
+
+            lr = .00025
+            dqn.compile(Adam(lr), metrics=['mae'])
+            weights_filename = model_saves + 'expert_lander_weights.h5f'
+            checkpoint_weights_filename = model_saves +'expert_lander_weights{step}.h5f'
+            log_filename = model_saves + 'expert_lander_REWARD_DATA.txt'
+            callbacks = [TrainEpisodeLogger(log_filename),
+                            ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
+                        ]
+            if args.mode == 'train':
+                dqn.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
+                dqn.save_weights(weights_filename, overwrite=True)
+            if args.mode == 'test':
+                dqn.load_weights(model_saves + 'expert_lander_weights.h5f')
+                dqn.test(env, nb_episodes=5, visualize=True, verbose=2, nb_max_start_steps=30)
+            if args.mode == 'demonstrate':
+                dqn.load_weights(model_saves + 'expert_lander_weights.h5f')
+                demonstrate(dqn, env, 75000, model_saves + 'demos.npy')
+
+
+    if args.model == 'curious_expert':
         # memory
         memory = PrioritizedMemory(limit=500000, alpha=.6, start_beta=.4, end_beta=.4, steps_annealed=5000000, window_length=WINDOW_LENGTH)
         # policy
