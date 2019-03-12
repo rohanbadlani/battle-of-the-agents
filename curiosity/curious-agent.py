@@ -47,7 +47,9 @@ env.seed(123)
 nb_actions = env.action_space.n
 
 WINDOW_LENGTH = 2
-input_shape = (WINDOW_LENGTH, 8)
+#state vector is 8 dimensional in lunar lander (x,y,x_vel,y_vel,theta,theta_vel,leg1_touched,leg2_touched)
+LL_state_size = 8
+input_shape = (WINDOW_LENGTH, LL_state_size)
 
 # DQfD "student" model architecture
 sensors = Input(shape=(input_shape))
@@ -65,23 +67,39 @@ e_dense3 = Dense(64, activation='relu')(e_dense2)
 e_actions = Dense(nb_actions, activation='linear')(e_dense3)
 expert_model = Model(inputs=sensors, outputs=e_actions)
 
-#7 since 1 action and 6 state dims
-curiosity_forward_model_input_shape = (WINDOW_LENGTH, 7)
-curious_forward_inputs = Input(shape=(curiosity_forward_model_input_shape))
-curious_forward_flatten = Flatten()(curious_forward_inputs)
-curious_forward_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_flatten)
-#6 since in Lunar Lander 6 state dim
-curious_forward_fc2 = Dense(6, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_flatten)
-curiosity_forward_model = Model(inputs=curious_forward_inputs, outputs=curious_forward_fc2)
+#Window length is number of consecutive states to capture in a single observation
+curiosity_forward_model_input_shape_state = (WINDOW_LENGTH, LL_state_size)
+curious_forward_inputs_state = Input(shape=(curiosity_forward_model_input_shape_state))
+#flatten the 2x8 vector into single vector of length 16
+curious_forward_flatten_state = Flatten()(curious_forward_inputs_state)
+#single action so shape is just 1
+curious_forward_inputs_action = Input(shape=(1,))
 
-#12 since 6 --> s_t, 6 --> s_t+1 
-curiosity_inverse_model_input_shape = (WINDOW_LENGTH, 12)
-curious_inverse_inputs = Input(shape=(curiosity_inverse_model_input_shape))
-curious_inverse_flatten = Flatten()(curious_inverse_inputs)
-curious_inverse_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_flatten)
+#input to the forward model is observation (size 16) plus action (size 1) so total length=17
+curious_forward_concat = Concatenate([curious_forward_flatten_state, curious_forward_inputs_action])
+
+
+curious_forward_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_concat)
+
+#output is length 16, since observation is 2x8
+curious_forward_fc2 = Dense(WINDOW_LENGTH*LL_state_size, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_fc1)
+curious_reshape_output = Reshape((WINDOW_LENGTH,LL_state_size), input_shape=(WINDOW_LENGTH*LL_state_size,))
+curiosity_forward_model = Model(inputs=[curious_forward_inputs_state, curious_forward_inputs_action], outputs=curious_reshape_output)
+
+
+curiosity_inverse_model_input_shape = (WINDOW_LENGTH, LL_state_size)
+curious_inverse_input_st = Input(shape=(curiosity_inverse_model_input_shape))
+curious_inverse_flatten_st = Flatten()(curious_inverse_input_st)
+
+curious_inverse_input_next_st = Input(shape=(curiosity_inverse_model_input_shape))
+curious_inverse_flatten_next_st = Flatten()(curious_inverse_input_next_st)
+
+curious_inverse_fullinput = Concatenate([curious_inverse_flatten_st, curious_inverse_flatten_next_st])
+
+curious_inverse_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
 #predicting actions.
 curious_inverse_fc2 = Dense(nb_actions, activation='linear', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
-curiosity_inverse_model = Model(inputs=curious_inverse_inputs, outputs=curious_inverse_fc2)
+curiosity_inverse_model = Model(inputs=[curious_inverse_input_st, curious_inverse_input_next_st], outputs=curious_inverse_fc2)
 
 processor = RocketProcessor()
 model_saves = './demonstrations/'
