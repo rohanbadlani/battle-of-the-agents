@@ -5,7 +5,7 @@ from PIL import Image
 import numpy as np
 import gym
 from keras.models import Model
-from keras.layers import Flatten, Input, Dense
+from keras.layers import Flatten, Input, Dense, Concatenate, Reshape
 from keras.optimizers import Adam
 from keras.regularizers import l2
 import keras.backend as K
@@ -16,12 +16,13 @@ from rl.core import Processor
 from rl.callbacks import TrainEpisodeLogger, ModelIntervalCheckpoint
 from rl.util import load_demo_data_from_file
 from record_demonstrations import demonstrate, reward_threshold_subset
+from keras.utils import plot_model
 
 from rl.agents.curious_agent import CuriousDQNAgent
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode',choices=['train','test','demonstrate'],default='test')
-parser.add_argument('--model',choices=['student','expert'],default='expert')
+parser.add_argument('--model',choices=['student','expert','curious_expert'],default='expert')
 args = parser.parse_args()
 
 
@@ -74,18 +75,16 @@ curious_forward_inputs_state = Input(shape=(curiosity_forward_model_input_shape_
 #flatten the 2x8 vector into single vector of length 16
 curious_forward_flatten_state = Flatten()(curious_forward_inputs_state)
 #single action so shape is just 1
-curious_forward_inputs_action = Input(shape=(1,))
+curious_forward_inputs_action = Input(shape=(nb_actions,))
 
 #input to the forward model is observation (size 16) plus action (size 1) so total length=17
-curious_forward_concat = Concatenate([curious_forward_flatten_state, curious_forward_inputs_action])
-
-
+curious_forward_concat = Concatenate()([curious_forward_flatten_state, curious_forward_inputs_action])
 curious_forward_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_concat)
-
 #output is length 16, since observation is 2x8; activation is just identity since state can take on any value
 curious_forward_fc2 = Dense(WINDOW_LENGTH*LL_state_size, activation='linear', kernel_regularizer=l2(.0001))(curious_forward_fc1)
-curious_reshape_output = Reshape((WINDOW_LENGTH,LL_state_size), input_shape=(WINDOW_LENGTH*LL_state_size,))
+curious_reshape_output = Reshape((WINDOW_LENGTH,LL_state_size), input_shape=(WINDOW_LENGTH*LL_state_size,))(curious_forward_fc2)
 curiosity_forward_model = Model(inputs=[curious_forward_inputs_state, curious_forward_inputs_action], outputs=curious_reshape_output)
+plot_model(curiosity_forward_model, show_shapes=True, to_file='curiosity_forward_model.png')
 ########## END FORWARD MODEL ##########
 
 
@@ -97,11 +96,12 @@ curious_inverse_flatten_st = Flatten()(curious_inverse_input_st)
 curious_inverse_input_next_st = Input(shape=(curiosity_inverse_model_input_shape))
 curious_inverse_flatten_next_st = Flatten()(curious_inverse_input_next_st)
 
-curious_inverse_fullinput = Concatenate([curious_inverse_flatten_st, curious_inverse_flatten_next_st])
+curious_inverse_fullinput = Concatenate()([curious_inverse_flatten_st, curious_inverse_flatten_next_st])
 
 curious_inverse_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
 curious_inverse_fc2 = Dense(nb_actions, activation='softmax', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
 curiosity_inverse_model = Model(inputs=[curious_inverse_input_st, curious_inverse_input_next_st], outputs=curious_inverse_fc2)
+plot_model(curiosity_inverse_model, show_shapes=True, to_file='curiosity_inverse_model.png')
 ######## END INVERSE MODEL ################
 
 processor = RocketProcessor()
