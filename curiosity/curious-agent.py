@@ -184,6 +184,10 @@ if __name__ == "__main__":
 
         lr = .00025
         dqn.compile(Adam(lr), metrics=['mae'])
+
+        plot_model(dqn.trainable_model, show_shapes=True, to_file='full_trainable_model.png')
+        
+
         weights_filename = model_saves + 'expert_lander_weights.h5f'
         checkpoint_weights_filename = model_saves +'expert_lander_weights{step}.h5f'
         log_filename = model_saves + 'expert_lander_REWARD_DATA.txt'
