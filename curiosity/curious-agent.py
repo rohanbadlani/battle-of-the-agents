@@ -58,14 +58,16 @@ if args.env == "Breakout":
     np.random.seed(231)
     env.seed(123)
 
+    #FIXME: setting window length to 1 as then the convolution does not work if shape is (4, 210, 160, 3)
+    #FIXME: Try to see if we can make this 4 as Mnih et al had done. Will have to implement tiling of images I think.
     WINDOW_LENGTH = 1
     LL_state_size = 288 #after convolution, this is the size of the state.
 
-    #setting window length to 4 as Mnih et al had done the same.
-    #state vector is 84*84*4 dimensional in Atari Breakout. FixMe: Add in preprocessing like Mnih et al do.
+    #state vector is 210, 160, 3 dimensional in Atari Breakout.
     conv_input_shape = (WINDOW_LENGTH, 210, 160, 3)
     
-    #reference: https://github.com/pathak22/noreward-rl/blob/master/src/model.py
+    #reference: https://github.com/pathak22/noreward-rl/blob/master/src/model.py - uses 4 conv layers for Doom/Mario. But ours is Breakout. (can try this but commented for now)
+    #OpenAI Curiosity Large Scale uses only 2 conv layers for Breakout. reference: https://arxiv.org/pdf/1312.5602.pdf Page 5 end, Page 6 beginning.
     sensors = Input(shape=(conv_input_shape))
     
     image_shape = tuple([x for x in sensors.shape.as_list() if x != WINDOW_LENGTH and x is not None])
