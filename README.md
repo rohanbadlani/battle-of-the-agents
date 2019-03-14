@@ -1,6 +1,30 @@
 # battle-of-the-agents
 Battle of the Agents - balancing experience, curiosity &amp; imitation
 
+#Running Instructions:
+1. Training: (Change env to Breakout for breakout runs.)
+	a. Lunar Lander Student DQN: 
+	```
+	python curious-agent.py --mode=train --model=student --curiosity_during_expert_phase=False --env=LunarLander
+	```
+
+	b. Lunar Lander Expert DQN:
+	```
+	python curious-agent.py --mode=train --model=expert --curiosity_during_expert_phase=False --env=LunarLander
+	```
+
+	c. Lunar Lander Curious Student DQN: 
+	```
+	python curious-agent.py --mode=train --model=curious_student --curiosity_during_expert_phase=False --env=LunarLander
+	```
+
+	d. Lunar Lander Expert DQN:
+	```
+	python curious-agent.py --mode=train --model=curious_expert --curiosity_during_expert_phase=False --env=LunarLander
+	```
+
+2. Testing: Similar to above. Only change mode.
+
 #Installation Requirements
 1. Install Prereqs:
 
