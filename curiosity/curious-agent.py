@@ -16,13 +16,13 @@ from rl.core import Processor
 from rl.callbacks import TrainEpisodeLogger, ModelIntervalCheckpoint
 from rl.util import load_demo_data_from_file
 from record_demonstrations import demonstrate, reward_threshold_subset
-from keras.utils import plot_model
+#from keras.utils import plot_model
 
-from rl.agents.curious_agent import CuriousDQNAgent
+from rl.agents.curious_agent import CuriousDQNAgent, CuriousDQfDAgent
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode',choices=['train','test','demonstrate'],default='test')
-parser.add_argument('--model',choices=['student','expert','curious_expert'],default='expert')
+parser.add_argument('--model',choices=['student','expert','curious_expert','curious_student'],default='expert')
 args = parser.parse_args()
 
 
@@ -84,7 +84,7 @@ curious_forward_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001)
 curious_forward_fc2 = Dense(WINDOW_LENGTH*LL_state_size, activation='linear', kernel_regularizer=l2(.0001))(curious_forward_fc1)
 curious_reshape_output = Reshape((WINDOW_LENGTH,LL_state_size), input_shape=(WINDOW_LENGTH*LL_state_size,))(curious_forward_fc2)
 curiosity_forward_model = Model(inputs=[curious_forward_inputs_state, curious_forward_inputs_action], outputs=curious_reshape_output)
-plot_model(curiosity_forward_model, show_shapes=True, to_file='curiosity_forward_model.png')
+#plot_model(curiosity_forward_model, show_shapes=True, to_file='curiosity_forward_model.png')
 ########## END FORWARD MODEL ##########
 
 
@@ -101,7 +101,7 @@ curious_inverse_fullinput = Concatenate()([curious_inverse_flatten_st, curious_i
 curious_inverse_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
 curious_inverse_fc2 = Dense(nb_actions, activation='softmax', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
 curiosity_inverse_model = Model(inputs=[curious_inverse_input_st, curious_inverse_input_next_st], outputs=curious_inverse_fc2)
-plot_model(curiosity_inverse_model, show_shapes=True, to_file='curiosity_inverse_model.png')
+#plot_model(curiosity_inverse_model, show_shapes=True, to_file='curiosity_inverse_model.png')
 ######## END INVERSE MODEL ################
 
 processor = RocketProcessor()
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         lr = .00025
         dqn.compile(Adam(lr), metrics=['mae'])
 
-        plot_model(dqn.trainable_model, show_shapes=True, to_file='full_trainable_model.png')
+        #plot_model(dqn.trainable_model, show_shapes=True, to_file='full_trainable_model.png')
         
 
         weights_filename = model_saves + 'expert_lander_weights.h5f'
@@ -203,3 +203,36 @@ if __name__ == "__main__":
         if args.mode == 'demonstrate':
             dqn.load_weights(model_saves + 'expert_lander_weights.h5f')
             demonstrate(dqn, env, 75000, model_saves + 'demos.npy')
+
+    if args.model == 'curious_student':
+        # load expert data
+        expert_demo_data = load_demo_data_from_file(model_saves + 'demos.npy')
+        expert_demo_data = reward_threshold_subset(expert_demo_data,0)
+        print(expert_demo_data.shape)
+        expert_demo_data = processor.process_demo_data(expert_demo_data)
+        # memory
+        memory = PartitionedMemory(limit=500000, pre_load_data=expert_demo_data, alpha=.6, start_beta=.4, end_beta=.4, window_length=WINDOW_LENGTH)
+        # policy
+        policy = EpsGreedyQPolicy(.01)
+        # agent
+        dqfd = CuriousDQfDAgent(model=student_model, curiosity_forward_model=curiosity_forward_model, curiosity_inverse_model=curiosity_inverse_model, nb_actions=nb_actions, policy=policy, memory=memory,
+                       processor=processor, enable_double_dqn=True, enable_dueling_network=True, gamma=.99, target_model_update=10000,
+                       train_interval=1, delta_clip=1., pretraining_steps=15000, n_step=10, large_margin=.8, lam_2=1)
+
+        lr = .00025
+        dqfd.compile(Adam(lr), metrics=['mae'])
+        weights_filename = model_saves + 'student_lander15k_weights.h5f'
+        checkpoint_weights_filename = model_saves +'student_lander15k_weights{step}.h5f'
+        log_filename = model_saves + 'student_lander15k_REWARD_DATA.txt'
+        callbacks = [TrainEpisodeLogger(log_filename),
+                        ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
+                    ]
+        if args.mode == 'train':
+            dqfd.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
+            dqfd.save_weights(weights_filename, overwrite=True)
+        if args.mode == 'test':
+            dqfd.load_weights(model_saves + 'student_lander15k_weights.h5f')
+            dqfd.test(env, nb_episodes=12, visualize=True, verbose=2, nb_max_start_steps=30)
+        if args.mode == 'demonstrate':
+            print("Curious DQfD cannot demonstrate.")
+
