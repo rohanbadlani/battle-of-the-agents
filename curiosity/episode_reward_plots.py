@@ -1,5 +1,7 @@
 import numpy as np
+import sys
 import matplotlib.pyplot as plt
+sys.path.append('../meta-keras-rl/keras-rl/')
 from record_demonstrations import demo_avg, load_demo_data_from_file, reward_threshold_subset
 
 class TrainingAnalyzer():
@@ -114,11 +116,11 @@ class TrainingAnalyzer():
         return np.convolve( m[::-1], y, mode='valid')
 
 #DQN vs DQfD
-e = TrainingAnalyzer('./model_saves/expert_lander_REWARD_DATA.txt')
+e = TrainingAnalyzer('./demonstrations/expert_lander_REWARD_DATA.txt')
 e.graph_metrics_by_episode(metric_list=[['episode_reward','-','grey']])
-e = TrainingAnalyzer('./model_saves/student_lander15k_REWARD_DATA.txt')
+e = TrainingAnalyzer('./demonstrations/student_lander15k_REWARD_DATA.txt')
 e.graph_metrics_by_episode(metric_list=[['episode_reward','-','purple']])
-demos = reward_threshold_subset(load_demo_data_from_file('./model_saves/demos.npy'), 0)
+demos = reward_threshold_subset(load_demo_data_from_file('./demonstrations/lunar_lander_demos.npy'), 0)
 demo_avg = demo_avg(demos)
 plt.plot([i for i in range(15000)],[demo_avg for i in range(15000)],color='blue')
 plt.legend(['PDD','DQfD','Demo Avg'])
@@ -133,7 +135,7 @@ plt.show()
 # e.graph_metrics_by_episode(metric_list=[['episode_reward','-','#ebf298']])
 # e = TrainingAnalyzer('./model_saves/student_lander300k_REWARD_DATA.txt')
 # e.graph_metrics_by_episode(metric_list=[['episode_reward','-','purple']])
-# demos = reward_threshold_subset(load_demo_data_from_file('./model_saves/demos.npy'), 0)
+# demos = reward_threshold_subset(load_demo_data_from_file('./model_saves/lunar_lander_demos.npy'), 0)
 # demo_avg = demo_avg(demos)
 # plt.plot([i for i in range(15000)],[demo_avg for i in range(15000)],color='blue')
 # plt.legend(['15k','50k','100k','300k','Demo Avg'])
@@ -146,7 +148,7 @@ plt.show()
 # e.graph_metrics_by_episode(metric_list=[['episode_reward','-','#8962af']])
 # e = TrainingAnalyzer('./model_saves/student_lander300k01_REWARD_DATA.txt')
 # e.graph_metrics_by_episode(metric_list=[['episode_reward','-','#371d51']])
-# demos = reward_threshold_subset(load_demo_data_from_file('./model_saves/demos.npy'), 0)
+# demos = reward_threshold_subset(load_demo_data_from_file('./model_saves/lunar_lander_demos.npy'), 0)
 # demo_avg = demo_avg(demos)
 # plt.plot([i for i in range(15000)],[demo_avg for i in range(15000)],color='blue',label='Demonstration min.')
 # plt.legend(['.0001','.001','.01','Demo Avg'])
