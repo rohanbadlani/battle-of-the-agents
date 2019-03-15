@@ -19,6 +19,7 @@ from record_demonstrations import demonstrate, reward_threshold_subset
 from keras.layers import ELU
 from keras.activations import relu
 from keras.utils import plot_model
+import pdb
 
 from rl.agents.curious_agent import CuriousDQNAgent, CuriousDQfDAgent
 
@@ -28,6 +29,28 @@ parser.add_argument('--model',choices=['student','expert','curious_expert','curi
 parser.add_argument('--env',choices=['LunarLander', 'Breakout'],default='LunarLander')
 parser.add_argument('--curiosity_during_expert_phase',choices=['True', 'False'],default='True')
 args = parser.parse_args()
+
+ATARI_INPUT_SHAPE = (84, 84)
+
+class AtariProcessor(Processor):
+    def process_observation(self, observation):
+        assert observation.ndim == 3  # (height, width, channel)
+        img = Image.fromarray(observation)
+        #img = img.resize(ATARI_INPUT_SHAPE).convert('L')  # resize and convert to grayscale
+        img = img.resize(ATARI_INPUT_SHAPE)
+        processed_observation = np.array(img)
+        #assert processed_observation.shape == ATARI_INPUT_SHAPE
+        return processed_observation.astype('uint8')  # saves storage in experience memory
+
+    def process_state_batch(self, batch):
+        # We could perform this processing step in `process_observation`. In this case, however,
+        # we would need to store a `float32` array instead, which is 4x more memory intensive than
+        # an `uint8` array. This matters if we store 1M observations.
+        processed_batch = batch.astype('float32') / 255.
+        return processed_batch
+
+    def process_reward(self, reward):
+        return np.clip(reward, -1., 1.)
 
 class RocketProcessor(Processor):
     def process_observation(self, observation):
@@ -51,10 +74,13 @@ sensors = None
 q_network_input = None
 demonstrations_file = None
 plot_file_prefix = None
+processor = None
+
 if args.env == "Breakout":
     env = gym.make("Breakout-v0")
     demonstrations_file = "breakout_demos.npy"
     plot_file_prefix = "breakout_"
+    processor = AtariProcessor()
     np.random.seed(231)
     env.seed(123)
 
@@ -64,7 +90,8 @@ if args.env == "Breakout":
     LL_state_size = 288 #after convolution, this is the size of the state.
 
     #state vector is 210, 160, 3 dimensional in Atari Breakout.
-    conv_input_shape = (WINDOW_LENGTH, 210, 160, 3)
+    #conv_input_shape = (WINDOW_LENGTH, 210, 160, 3)
+    conv_input_shape = (WINDOW_LENGTH, 84, 84, 3)
     
     #reference: https://github.com/pathak22/noreward-rl/blob/master/src/model.py - uses 4 conv layers for Doom/Mario. But ours is Breakout. (can try this but commented for now)
     #OpenAI Curiosity Large Scale uses only 2 conv layers for Breakout. reference: https://arxiv.org/pdf/1312.5602.pdf Page 5 end, Page 6 beginning.
@@ -73,10 +100,10 @@ if args.env == "Breakout":
     image_shape = tuple([x for x in sensors.shape.as_list() if x != WINDOW_LENGTH and x is not None])
 
     reshaped_sensors = Reshape(image_shape, input_shape=conv_input_shape)(sensors)
-    conv_layer1 = Conv2D(filters=16, kernel_size=(4, 4), padding='valid', strides=(4, 4), activation='relu', use_bias=True, input_shape=conv_input_shape)(reshaped_sensors)
-    conv_out = Conv2D(filters=32, kernel_size=(4, 4) , padding='valid', strides=(2, 2), activation='relu', use_bias=True)(conv_layer1)
-    #conv_layer3 = Conv2D(filters=64, kernel_size=(3, 3), padding='same', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(conv_layer2)
-    #conv_out = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(conv_layer3)
+    conv_layer1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation='relu', use_bias=True, input_shape=image_shape)(reshaped_sensors)
+    conv_layer2 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation='relu', use_bias=True)(conv_layer1)
+    conv_layer3 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation='relu', use_bias=True)(conv_layer2)
+    conv_out = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation='relu', use_bias=True)(conv_layer3)
 
     input_shape = (WINDOW_LENGTH, LL_state_size)
     
@@ -87,34 +114,35 @@ if args.env == "Breakout":
 
     curiosity_fw_reshaped_sensors = Reshape(curiosity_fw_image_shape, input_shape=conv_input_shape)(curiosity_fw_conv_sensors)
     
-    curiosity_fw_conv_layer1 = Conv2D(filters=16, kernel_size=(4, 4), padding='valid', strides=(4, 4), activation='relu', use_bias=True)(curiosity_fw_reshaped_sensors)
-    curiosity_fw_conv_out = Conv2D(filters=32, kernel_size=(4, 4) , padding='valid', strides=(2, 2), activation='relu', use_bias=True)(curiosity_fw_conv_layer1)
-    #curiosity_fw_conv_layer3 = Conv2D(filters=32, kernel_size=(3, 3), padding='valid', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer2)
-    #curiosity_fw_conv_out = Conv2D(filters=32, kernel_size=(3, 3), padding='valid', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer3)
+    curiosity_fw_conv_layer1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_reshaped_sensors)
+    curiosity_fw_conv_layer2 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer1)
+    curiosity_fw_conv_layer3 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer2)
+    curiosity_fw_conv_out = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer3)
 
     curiosity_inv_conv_sensors_state1 = Input(shape=(conv_input_shape))
     curiosity_inv_conv_state1_image_shape = tuple([x for x in curiosity_inv_conv_sensors_state1.shape.as_list() if x != WINDOW_LENGTH and x is not None])
     curiosity_inv_state1_reshaped_sensors = Reshape(curiosity_inv_conv_state1_image_shape, input_shape=conv_input_shape)(curiosity_inv_conv_sensors_state1)
     
-    curiosity_inv_conv_layer1_state1 = Conv2D(filters=16, kernel_size=(4, 4), padding='valid', strides=(4, 4), activation='relu', use_bias=True)(curiosity_inv_state1_reshaped_sensors)
-    curiosity_inv_conv_out_state1 = Conv2D(filters=32, kernel_size=(4, 4) , padding='valid', strides=(2, 2), activation='relu', use_bias=True)(curiosity_inv_conv_layer1_state1)
-    #curiosity_inv_conv_layer3_state1 = Conv2D(filters=32, kernel_size=(3, 3), padding='valid', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer2_state1)
-    #curiosity_inv_conv_out_state1 = Conv2D(filters=32, kernel_size=(3, 3), padding='valid', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer3_state1)
+    curiosity_inv_conv_layer1_state1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_state1_reshaped_sensors)
+    curiosity_inv_conv_layer2_state1 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer1_state1)
+    curiosity_inv_conv_layer3_state1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer2_state1)
+    curiosity_inv_conv_out_state1 = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer3_state1)
 
     curiosity_inv_conv_sensors_state2 = Input(shape=(conv_input_shape))
     
     curiosity_inv_conv_state2_image_shape = tuple([x for x in curiosity_inv_conv_sensors_state2.shape.as_list() if x != WINDOW_LENGTH and x is not None])
     curiosity_inv_state2_reshaped_sensors = Reshape(curiosity_inv_conv_state2_image_shape, input_shape=conv_input_shape)(curiosity_inv_conv_sensors_state2)
     
-    curiosity_inv_conv_layer1_state2 = Conv2D(filters=16, kernel_size=(4, 4), padding='valid', strides=(4, 4), activation='relu', use_bias=True)(curiosity_inv_state2_reshaped_sensors)
-    curiosity_inv_conv_out_state2 = Conv2D(filters=32, kernel_size=(4, 4) , padding='valid', strides=(2, 2), activation='relu', use_bias=True)(curiosity_inv_conv_layer1_state2)
-    #curiosity_inv_conv_layer3_state2 = Conv2D(filters=32, kernel_size=(3, 3), padding='valid', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer2_state2)
-    #curiosity_inv_conv_out_state2 = Conv2D(filters=32, kernel_size=(3, 3), padding='valid', strides=(1, 1), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer3_state2)
+    curiosity_inv_conv_layer1_state2 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_state2_reshaped_sensors)
+    curiosity_inv_conv_layer2_state2 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer1_state2)
+    curiosity_inv_conv_layer3_state2 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer2_state2)
+    curiosity_inv_conv_out_state2 = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer3_state2)
 else:
     #defaulting to LunarLander
     env = gym.make("LunarLander-v2")
     demonstrations_file = "lunar_lander_demos.npy"
     plot_file_prefix = "lunar_lander_"
+    processor = RocketProcessor()
     np.random.seed(231)
     env.seed(123)
 
@@ -160,7 +188,8 @@ else:
 curious_forward_inputs_action = Input(shape=(nb_actions,))
 #input to the forward model is observation (size 16) plus action (size 1) so total length=17
 curious_forward_concat = Concatenate()([curious_forward_flatten_state, curious_forward_inputs_action])
-curious_forward_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_concat)
+curious_fw_dense_hidden_units = 256 # Fix - min(256, ____)
+curious_forward_fc1 = Dense(curious_fw_dense_hidden_units, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_concat)
 #output is length 16, since observation is 2x8; activation is just identity since state can take on any value
 curious_forward_fc2 = Dense(WINDOW_LENGTH*LL_state_size, activation='linear', kernel_regularizer=l2(.0001))(curious_forward_fc1)
 curious_reshape_output = Reshape((WINDOW_LENGTH,LL_state_size), input_shape=(WINDOW_LENGTH*LL_state_size,))(curious_forward_fc2)
@@ -192,7 +221,9 @@ else:
 
 curious_inverse_fullinput = Concatenate()([curious_inverse_flatten_st, curious_inverse_flatten_next_st])
 
-curious_inverse_fc1 = Dense(256, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
+curious_fw_dense_hidden_units = 256 #Fix - min(256, curious_inverse_fullinput.shape[0])
+
+curious_inverse_fc1 = Dense(curious_fw_dense_hidden_units, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
 curious_inverse_fc2 = Dense(nb_actions, activation='softmax', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
 
 curious_inv_input_list = None
@@ -205,7 +236,6 @@ curiosity_inverse_model = Model(inputs=curious_inv_input_list, outputs=curious_i
 plot_model(curiosity_inverse_model, show_shapes=True, to_file=plot_file_prefix + 'curiosity_inverse_model.png')
 ######## END INVERSE MODEL ################
 
-processor = RocketProcessor()
 model_saves = './demonstrations/'
 
 if __name__ == "__main__":
