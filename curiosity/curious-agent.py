@@ -1,5 +1,6 @@
 import argparse
 import sys
+import pdb
 sys.path.append('../meta-keras-rl/keras-rl/')
 from PIL import Image
 import numpy as np
@@ -106,38 +107,43 @@ if args.env == "Breakout":
     conv_layer3 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation='relu', use_bias=True)(conv_layer2)
     conv_out = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation='relu', use_bias=True)(conv_layer3)
 
-    input_shape = (WINDOW_LENGTH, LL_state_size)
-    
     q_network_input = conv_out
 
-    curiosity_fw_conv_sensors = Input(shape=(conv_input_shape))
-    curiosity_fw_image_shape = tuple([x for x in curiosity_fw_conv_sensors.shape.as_list() if x != WINDOW_LENGTH and x is not None])
+    #Define inputs to curiosity network; s1 represents state at time t, s2 represents state at time t+1
+    curiosity_s1 = Input(shape=(conv_input_shape))
+    curiosity_s2 = Input(shape=(conv_input_shape))
 
-    curiosity_fw_reshaped_sensors = Reshape(curiosity_fw_image_shape, input_shape=conv_input_shape)(curiosity_fw_conv_sensors)
-    
-    curiosity_fw_conv_layer1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_reshaped_sensors)
-    curiosity_fw_conv_layer2 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer1)
-    curiosity_fw_conv_layer3 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer2)
-    curiosity_fw_conv_out = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_fw_conv_layer3)
 
-    curiosity_inv_conv_sensors_state1 = Input(shape=(conv_input_shape))
-    curiosity_inv_conv_state1_image_shape = tuple([x for x in curiosity_inv_conv_sensors_state1.shape.as_list() if x != WINDOW_LENGTH and x is not None])
-    curiosity_inv_state1_reshaped_sensors = Reshape(curiosity_inv_conv_state1_image_shape, input_shape=conv_input_shape)(curiosity_inv_conv_sensors_state1)
-    
-    curiosity_inv_conv_layer1_state1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_state1_reshaped_sensors)
-    curiosity_inv_conv_layer2_state1 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer1_state1)
-    curiosity_inv_conv_layer3_state1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer2_state1)
-    curiosity_inv_conv_out_state1 = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer3_state1)
+    curiosity_reshape = Reshape(image_shape, input_shape=conv_input_shape)
 
-    curiosity_inv_conv_sensors_state2 = Input(shape=(conv_input_shape))
-    
-    curiosity_inv_conv_state2_image_shape = tuple([x for x in curiosity_inv_conv_sensors_state2.shape.as_list() if x != WINDOW_LENGTH and x is not None])
-    curiosity_inv_state2_reshaped_sensors = Reshape(curiosity_inv_conv_state2_image_shape, input_shape=conv_input_shape)(curiosity_inv_conv_sensors_state2)
-    
-    curiosity_inv_conv_layer1_state2 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_state2_reshaped_sensors)
-    curiosity_inv_conv_layer2_state2 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer1_state2)
-    curiosity_inv_conv_layer3_state2 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer2_state2)
-    curiosity_inv_conv_out_state2 = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)(curiosity_inv_conv_layer3_state2)
+    #rehsape both s1 and s2 with the same layer
+    curiosity_reshaped_sensors_phi1 = curiosity_reshape(curiosity_s1)
+    curiosity_reshaped_sensors_phi2 = curiosity_reshape(curiosity_s2)
+
+    #define the convolution layers
+    curiosity_conv_l1 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)
+    curiosity_conv_l2 = Conv2D(filters=32, kernel_size=(3, 3) , padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)
+    curiosity_conv_l3 = Conv2D(filters=32, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)
+    curiosity_conv_l4 = Conv2D(filters=8, kernel_size=(3, 3), padding='same', strides=(2, 2), activation=ELU(alpha=1.0), use_bias=True)
+
+    #Apply those convolution layers to our inputs
+    #layer 1
+    curiosity_conv_l1_s1 = curiosity_conv_l1(curiosity_reshaped_sensors_phi1)
+    curiosity_conv_l1_s2 = curiosity_conv_l1(curiosity_reshaped_sensors_phi2)
+
+    #layer 2
+    curiosity_conv_l2_s1 = curiosity_conv_l2(curiosity_conv_l1_s1)
+    curiosity_conv_l2_s2 = curiosity_conv_l2(curiosity_conv_l1_s2)
+
+    #layer 3
+    curiosity_conv_l3_s1 = curiosity_conv_l3(curiosity_conv_l2_s1)
+    curiosity_conv_l3_s2 = curiosity_conv_l3(curiosity_conv_l2_s2)
+
+    #layer 4
+    curiosity_conv_l4_s1 = curiosity_conv_l4(curiosity_conv_l3_s1)
+    curiosity_conv_l4_s2 = curiosity_conv_l4(curiosity_conv_l3_s2)
+
+
 else:
     #defaulting to LunarLander
     env = gym.make("LunarLander-v2")
@@ -152,6 +158,11 @@ else:
     LL_state_size = 8
     input_shape = (WINDOW_LENGTH, LL_state_size)
     sensors = Input(shape=(input_shape))
+
+    #input for the curiosity
+    curiosity_s1 = Input(shape=(input_shape))
+    curiosity_s2 = Input(shape=(input_shape))
+
     q_network_input = sensors
 
 nb_actions = env.action_space.n
@@ -162,76 +173,62 @@ s_dense = Flatten()(q_network_input)
 s_dense = Dense(64, activation='relu', kernel_regularizer=l2(.0001))(s_dense)
 s_dense2= Dense(128, activation='relu', kernel_regularizer=l2(.0001))(s_dense)
 s_dense3 = Dense(64, activation='relu', kernel_regularizer=l2(.0001))(s_dense2)
-s_actions = Dense(nb_actions, activation='linear', kernel_regularizer=l2(.0001))(s_dense3)
+s_actions = Dense(nb_actions, activation='linear', name="student_output", kernel_regularizer=l2(.0001))(s_dense3)
 student_model = Model(inputs=sensors, outputs=s_actions)
 # "Expert" (regular dqn) model architecture
 e_dense = Flatten()(q_network_input)
 e_dense = Dense(64, activation='relu')(e_dense)
 e_dense2= Dense(128, activation='relu')(e_dense)
 e_dense3 = Dense(64, activation='relu')(e_dense2)
-e_actions = Dense(nb_actions, activation='linear')(e_dense3)
+e_actions = Dense(nb_actions, activation='linear', name="expert_output")(e_dense3)
 expert_model = Model(inputs=sensors, outputs=e_actions)
 plot_model(expert_model, show_shapes=True, to_file=plot_file_prefix + 'expert_model.png')
 
 #### FORWARD MODEL ########
 #Window length is number of consecutive states to capture in a single observation
 curious_forward_flatten_state = None
-curious_forward_inputs_state = None
 if(args.env == "Breakout"):
-    curious_forward_flatten_state = Flatten()(curiosity_fw_conv_out)
+    curious_forward_flatten_state = Flatten()(curiosity_conv_l4_s1)
 else:
-    curious_forward_model_input_shape_state = (WINDOW_LENGTH, LL_state_size)
-    curious_forward_inputs_state = Input(shape=(curious_forward_model_input_shape_state))
-    #flatten the 2x8 vector into single vector of length 16
-    curious_forward_flatten_state = Flatten()(curious_forward_inputs_state)
+    curious_forward_flatten_state = Flatten()(curiosity_s1)
 
 #single action so shape is just 1
 curious_forward_inputs_action = Input(shape=(nb_actions,))
 #input to the forward model is observation (size 16) plus action (size 1) so total length=17
 curious_forward_concat = Concatenate()([curious_forward_flatten_state, curious_forward_inputs_action])
-curious_fw_dense_hidden_units = 256 # Fix - min(256, ____)
-curious_forward_fc1 = Dense(curious_fw_dense_hidden_units, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_concat)
-#output is length 16, since observation is 2x8; activation is just identity since state can take on any value
-curious_forward_fc2 = Dense(WINDOW_LENGTH*LL_state_size, activation='linear', kernel_regularizer=l2(.0001))(curious_forward_fc1)
-curious_reshape_output = Reshape((WINDOW_LENGTH,LL_state_size), input_shape=(WINDOW_LENGTH*LL_state_size,))(curious_forward_fc2)
 
-curious_fw_input_list = None
+curious_fw_dense_hidden_units =  min(256, K.int_shape(curious_forward_flatten_state)[1] ) 
+curious_forward_fc1 = Dense(curious_fw_dense_hidden_units, activation='relu', kernel_regularizer=l2(.0001))(curious_forward_concat)
+
+curious_forward_fc2 = Dense(K.int_shape(curious_forward_flatten_state)[1], activation='linear', kernel_regularizer=l2(.0001))(curious_forward_fc1)
+
 if(args.env == "Breakout"):
-    curious_fw_input_list = [curiosity_fw_conv_sensors, curious_forward_inputs_action]
+    curious_reshape_output = Reshape( K.int_shape(curiosity_conv_l4_s1)[1:], name="curious_forward_output" )(curious_forward_fc2)
 else:
-    curious_fw_input_list = [curious_forward_inputs_state, curious_forward_inputs_action]
+    curious_reshape_output = Reshape( K.int_shape(curiosity_s1)[1:], name="curious_forward_output" )(curious_forward_fc2)
+
+curious_fw_input_list = [curiosity_s1, curious_forward_inputs_action]
 curiosity_forward_model = Model(inputs=curious_fw_input_list, outputs=curious_reshape_output)
 plot_model(curiosity_forward_model, show_shapes=True, to_file=plot_file_prefix + 'curiosity_forward_model.png')
 ########## END FORWARD MODEL ##########
 
 
 ############ INVERSE MODEL ##########
-curious_inverse_flatten_st = None
-curious_inverse_flatten_next_st = None
-
+curious_inverse_flatten_st = curious_forward_flatten_state
+curious_inverse_flatten_next_st_layer = Flatten(name="flattened_phi_next_state")
 if(args.env == "Breakout"):
-    curious_inverse_flatten_st = Flatten()(curiosity_inv_conv_out_state1)
-    curious_inverse_flatten_next_st = Flatten()(curiosity_inv_conv_out_state2)
+    curious_inverse_flatten_next_st = curious_inverse_flatten_next_st_layer(curiosity_conv_l4_s2)
 else:
-    curiosity_inverse_model_input_shape = (WINDOW_LENGTH, LL_state_size)
-    curious_inverse_input_st = Input(shape=(curiosity_inverse_model_input_shape))
-    curious_inverse_flatten_st = Flatten()(curious_inverse_input_st)
-
-    curious_inverse_input_next_st = Input(shape=(curiosity_inverse_model_input_shape))
-    curious_inverse_flatten_next_st = Flatten()(curious_inverse_input_next_st)
+    curious_inverse_flatten_next_st = curious_inverse_flatten_next_st_layer(curiosity_s2)
 
 curious_inverse_fullinput = Concatenate()([curious_inverse_flatten_st, curious_inverse_flatten_next_st])
 
-curious_fw_dense_hidden_units = 256 #Fix - min(256, curious_inverse_fullinput.shape[0])
+curious_fw_dense_hidden_units =  min(256, K.int_shape(curious_inverse_fullinput)[1] ) 
 
 curious_inverse_fc1 = Dense(curious_fw_dense_hidden_units, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
-curious_inverse_fc2 = Dense(nb_actions, activation='softmax', kernel_regularizer=l2(.0001))(curious_inverse_fc1)
+curious_inverse_fc2 = Dense(nb_actions, activation='softmax', name="curious_inverse_output", kernel_regularizer=l2(.0001))(curious_inverse_fc1)
 
-curious_inv_input_list = None
-if(args.env == "Breakout"):
-    curious_inv_input_list = [curiosity_inv_conv_sensors_state1, curiosity_inv_conv_sensors_state2]
-else:
-    curious_inv_input_list = [curious_inverse_input_st, curious_inverse_input_next_st]
+curious_inv_input_list = [curiosity_s1, curiosity_s2]
 
 curiosity_inverse_model = Model(inputs=curious_inv_input_list, outputs=curious_inverse_fc2)
 plot_model(curiosity_inverse_model, show_shapes=True, to_file=plot_file_prefix + 'curiosity_inverse_model.png')
