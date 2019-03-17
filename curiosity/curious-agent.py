@@ -3,6 +3,7 @@ import sys
 import pdb
 sys.path.append('../meta-keras-rl/keras-rl/')
 from PIL import Image
+from datetime import datetime
 import numpy as np
 import gym
 from keras.models import Model
@@ -236,6 +237,10 @@ plot_model(curiosity_inverse_model, show_shapes=True, to_file=plot_file_prefix +
 
 model_saves = './demonstrations/'
 
+now = datetime.now()
+datestr = now.strftime("%m%d_%H%M%S")
+filename_append = args.filename_append
+
 if __name__ == "__main__":
     if args.model == 'student':
         # load expert data
@@ -254,9 +259,9 @@ if __name__ == "__main__":
 
         lr = .00025
         dqfd.compile(Adam(lr), metrics=['mae'])
-        weights_filename = model_saves + 'student_lander15k_weights.h5f'
-        checkpoint_weights_filename = model_saves +'student_lander15k_weights{step}.h5f'
-        log_filename = model_saves + 'student_lander15k_REWARD_DATA.txt'
+        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_weights.h5f'
+        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_weights{step}.h5f'
+        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_REWARD_DATA.txt'
         callbacks = [TrainEpisodeLogger(log_filename),
                         ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                     ]
@@ -283,9 +288,9 @@ if __name__ == "__main__":
 
             lr = .00025
             dqn.compile(Adam(lr), metrics=['mae'])
-            weights_filename = model_saves + args.filename_append + 'expert_lander_weights.h5f'
-            checkpoint_weights_filename = model_saves + args.filename_append + 'expert_lander_weights{step}.h5f'
-            log_filename = model_saves + args.filename_append + 'expert_lander_REWARD_DATA.txt'
+            weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights.h5f'
+            checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights{step}.h5f'
+            log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_REWARD_DATA.txt'
             callbacks = [TrainEpisodeLogger(log_filename),
                             ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                         ]
@@ -293,10 +298,10 @@ if __name__ == "__main__":
                 dqn.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
                 dqn.save_weights(weights_filename, overwrite=True)
             if args.mode == 'test':
-                dqn.load_weights(model_saves + args.filename_append + 'expert_lander_weights.h5f')
+                dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights.h5f')
                 dqn.test(env, nb_episodes=5, visualize=True, verbose=2, nb_max_start_steps=30)
             if args.mode == 'demonstrate':
-                dqn.load_weights(model_saves + args.filename_append + 'expert_lander_weights.h5f')
+                dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights.h5f')
                 demonstrate(dqn, env, 75000, model_saves + demonstrations_file)
 
 
@@ -314,12 +319,12 @@ if __name__ == "__main__":
         lr = .00025
         dqn.compile(Adam(lr), metrics=['mae'])
 
-        #plot_model(dqn.trainable_model, show_shapes=True, to_file='full_trainable_model.png')
+        plot_model(dqn.trainable_model, show_shapes=True, to_file=plot_file_prefix+'full_trainable_model.png')
         
 
-        weights_filename = model_saves + 'expert_lander_weights.h5f'
-        checkpoint_weights_filename = model_saves +'expert_lander_weights{step}.h5f'
-        log_filename = model_saves + 'expert_lander_REWARD_DATA.txt'
+        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_lander_weights.h5f'
+        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_lander_weights{step}.h5f'
+        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_lander_REWARD_DATA.txt'
         callbacks = [TrainEpisodeLogger(log_filename),
                         ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                     ]
@@ -350,9 +355,9 @@ if __name__ == "__main__":
 
         lr = .00025
         dqfd.compile(Adam(lr), metrics=['mae'])
-        weights_filename = model_saves + 'student_lander15k_weights.h5f'
-        checkpoint_weights_filename = model_saves +'student_lander15k_weights{step}.h5f'
-        log_filename = model_saves + 'student_lander15k_REWARD_DATA.txt'
+        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_student_lander15k_weights.h5f'
+        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_student_lander15k_weights{step}.h5f'
+        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_REWARD_DATA.txt'
         callbacks = [TrainEpisodeLogger(log_filename),
                         ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                     ]
