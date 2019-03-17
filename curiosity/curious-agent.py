@@ -146,7 +146,7 @@ if args.env == "Breakout":
 
 
 else:
-    #defaulting to LunarLander
+    #defaulting to Lunar' + environment_name + '
     env = gym.make("LunarLander-v2")
     demonstrations_file = "lunar_lander_demos.npy"
     plot_file_prefix = "lunar_lander_"
@@ -155,7 +155,7 @@ else:
     env.seed(123)
 
     WINDOW_LENGTH = 2
-    #state vector is 8 dimensional in lunar lander (x,y,x_vel,y_vel,theta,theta_vel,leg1_touched,leg2_touched)
+    #state vector is 8 dimensional in lunar ' + environment_name + ' (x,y,x_vel,y_vel,theta,theta_vel,leg1_touched,leg2_touched)
     LL_state_size = 8
     input_shape = (WINDOW_LENGTH, LL_state_size)
     sensors = Input(shape=(input_shape))
@@ -240,6 +240,7 @@ model_saves = './demonstrations/'
 now = datetime.now()
 datestr = now.strftime("%m%d_%H%M%S")
 filename_append = args.filename_append
+environment_name = args.env
 
 if __name__ == "__main__":
     if args.model == 'student':
@@ -259,9 +260,9 @@ if __name__ == "__main__":
 
         lr = .00025
         dqfd.compile(Adam(lr), metrics=['mae'])
-        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_weights.h5f'
-        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_weights{step}.h5f'
-        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_REWARD_DATA.txt'
+        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_' + environment_name + '15k_weights.h5f'
+        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_' + environment_name + '15k_weights{step}.h5f'
+        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_' + environment_name + '15k_REWARD_DATA.txt'
         callbacks = [TrainEpisodeLogger(log_filename),
                         ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                     ]
@@ -269,7 +270,7 @@ if __name__ == "__main__":
             dqfd.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
             dqfd.save_weights(weights_filename, overwrite=True)
         if args.mode == 'test':
-            dqfd.load_weights(model_saves + 'student_lander15k_weights.h5f')
+            dqfd.load_weights(model_saves + 'student_' + environment_name + '15k_weights.h5f')
             dqfd.test(env, nb_episodes=12, visualize=True, verbose=2, nb_max_start_steps=30)
         if args.mode == 'demonstrate':
             print("DQfD cannot demonstrate.")
@@ -288,9 +289,9 @@ if __name__ == "__main__":
 
             lr = .00025
             dqn.compile(Adam(lr), metrics=['mae'])
-            weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights.h5f'
-            checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights{step}.h5f'
-            log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_REWARD_DATA.txt'
+            weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_weights.h5f'
+            checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_weights{step}.h5f'
+            log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_REWARD_DATA.txt'
             callbacks = [TrainEpisodeLogger(log_filename),
                             ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                         ]
@@ -298,10 +299,10 @@ if __name__ == "__main__":
                 dqn.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
                 dqn.save_weights(weights_filename, overwrite=True)
             if args.mode == 'test':
-                dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights.h5f')
+                dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_weights.h5f')
                 dqn.test(env, nb_episodes=5, visualize=True, verbose=2, nb_max_start_steps=30)
             if args.mode == 'demonstrate':
-                dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_lander_weights.h5f')
+                dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_weights.h5f')
                 demonstrate(dqn, env, 75000, model_saves + demonstrations_file)
 
 
@@ -322,9 +323,9 @@ if __name__ == "__main__":
         plot_model(dqn.trainable_model, show_shapes=True, to_file=plot_file_prefix+'full_trainable_model.png')
         
 
-        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_lander_weights.h5f'
-        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_lander_weights{step}.h5f'
-        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_lander_REWARD_DATA.txt'
+        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_' + environment_name + '_weights.h5f'
+        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_' + environment_name + '_weights{step}.h5f'
+        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_expert_' + environment_name + '_REWARD_DATA.txt'
         callbacks = [TrainEpisodeLogger(log_filename),
                         ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                     ]
@@ -332,10 +333,10 @@ if __name__ == "__main__":
             dqn.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
             dqn.save_weights(weights_filename, overwrite=True)
         if args.mode == 'test':
-            dqn.load_weights(model_saves + 'expert_lander_weights.h5f')
+            dqn.load_weights(model_saves + 'expert_' + environment_name + '_weights.h5f')
             dqn.test(env, nb_episodes=5, visualize=True, verbose=2, nb_max_start_steps=30)
         if args.mode == 'demonstrate':
-            dqn.load_weights(model_saves + 'expert_lander_weights.h5f')
+            dqn.load_weights(model_saves + 'expert_' + environment_name + '_weights.h5f')
             demonstrate(dqn, env, 75000, model_saves + demonstrations_file)
 
     if args.model == 'curious_student':
@@ -355,9 +356,9 @@ if __name__ == "__main__":
 
         lr = .00025
         dqfd.compile(Adam(lr), metrics=['mae'])
-        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_student_lander15k_weights.h5f'
-        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_student_lander15k_weights{step}.h5f'
-        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_lander15k_REWARD_DATA.txt'
+        weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_student_' + environment_name + '15k_weights.h5f'
+        checkpoint_weights_filename = model_saves + filename_append + "_" + datestr + "_"  + 'curious_student_' + environment_name + '15k_weights{step}.h5f'
+        log_filename = model_saves + filename_append + "_" + datestr + "_"  + 'student_' + environment_name + '15k_REWARD_DATA.txt'
         callbacks = [TrainEpisodeLogger(log_filename),
                         ModelIntervalCheckpoint(checkpoint_weights_filename, interval=1000000)
                     ]
@@ -365,7 +366,7 @@ if __name__ == "__main__":
             dqfd.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
             dqfd.save_weights(weights_filename, overwrite=True)
         if args.mode == 'test':
-            dqfd.load_weights(model_saves + 'student_lander15k_weights.h5f')
+            dqfd.load_weights(model_saves + 'student_' + environment_name + '15k_weights.h5f')
             dqfd.test(env, nb_episodes=12, visualize=True, verbose=2, nb_max_start_steps=30)
         if args.mode == 'demonstrate':
             print("Curious DQfD cannot demonstrate.")
