@@ -147,6 +147,7 @@ if args.env == "Breakout":
 
 else:
     #defaulting to Lunar' + environment_name + '
+    print("Running lunar lander")
     env = gym.make("LunarLander-v2")
     demonstrations_file = "lunar_lander_demos.npy"
     plot_file_prefix = "lunar_lander_"
@@ -154,7 +155,7 @@ else:
     np.random.seed(231)
     env.seed(123)
 
-    WINDOW_LENGTH = 2
+    WINDOW_LENGTH = 1
     #state vector is 8 dimensional in lunar ' + environment_name + ' (x,y,x_vel,y_vel,theta,theta_vel,leg1_touched,leg2_touched)
     LL_state_size = 8
     input_shape = (WINDOW_LENGTH, LL_state_size)
@@ -215,25 +216,8 @@ plot_model(curiosity_forward_model, show_shapes=True, to_file=plot_file_prefix +
 
 
 ############ INVERSE MODEL ##########
-curious_inverse_flatten_st = curious_forward_flatten_state
-curious_inverse_flatten_next_st_layer = Flatten(name="flattened_phi_next_state")
-if(args.env == "Breakout"):
-    curious_inverse_flatten_next_st = curious_inverse_flatten_next_st_layer(curiosity_conv_l4_s2)
-else:
-    curious_inverse_flatten_next_st = curious_inverse_flatten_next_st_layer(curiosity_s2)
-
-curious_inverse_fullinput = Concatenate()([curious_inverse_flatten_st, curious_inverse_flatten_next_st])
-
-curious_fw_dense_hidden_units =  min(256, K.int_shape(curious_inverse_fullinput)[1] ) 
-
-curious_inverse_fc1 = Dense(curious_fw_dense_hidden_units, activation='relu', kernel_regularizer=l2(.0001))(curious_inverse_fullinput)
-curious_inverse_fc2 = Dense(nb_actions, activation='softmax', name="curious_inverse_output", kernel_regularizer=l2(.0001))(curious_inverse_fc1)
-
-curious_inv_input_list = [curiosity_s1, curiosity_s2]
-
-curiosity_inverse_model = Model(inputs=curious_inv_input_list, outputs=curious_inverse_fc2)
-plot_model(curiosity_inverse_model, show_shapes=True, to_file=plot_file_prefix + 'curiosity_inverse_model.png')
-######## END INVERSE MODEL ################
+curiosity_inverse_model = None
+####### END INVERSE MODEL ################
 
 model_saves = './demonstrations/'
 
@@ -315,7 +299,7 @@ if __name__ == "__main__":
         # agent
         dqn = CuriousDQNAgent(model=expert_model, curiosity_forward_model=curiosity_forward_model, curiosity_inverse_model=curiosity_inverse_model, nb_actions=nb_actions, policy=policy, memory=memory,
                        processor=processor, enable_double_dqn=True, enable_dueling_network=True, gamma=.99, target_model_update=10000,
-                       train_interval=1, delta_clip=1., nb_steps_warmup=50000)
+                       train_interval=100, delta_clip=1., nb_steps_warmup=50000)
 
         lr = .00025
         dqn.compile(Adam(lr), metrics=['mae'])
