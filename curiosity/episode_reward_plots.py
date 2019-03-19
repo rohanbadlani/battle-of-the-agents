@@ -1,3 +1,5 @@
+import pdb
+import argparse
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
@@ -9,10 +11,14 @@ class TrainingAnalyzer():
     Framework for visualizing training data logged by TrainEpisodeLogger()
     """
     def __init__(self, filepath):
+        seen_header = 0
         try:
             with open(filepath, 'r') as f:
                 self.processed_data = list()
                 for line in f:
+                    if seen_header < 2:
+                        seen_header+=1
+                        continue
                     line.strip()
                     line.replace("\"",'')
                     data = line.split('\' \'') #cuts out loss metric strings
@@ -31,8 +37,16 @@ class TrainingAnalyzer():
               'reward_min':list(),'reward_max':list(),
              'action_mean':list(), 'action_min':list(), 'action_max':list(),
               'obs_mean':list(),
-             'obs_min':list(), 'obs_max':list(), 'metrics_text':list()
+             'obs_min':list(), 'obs_max':list()
             }
+
+        single_line = self.processed_data[:-1][0][7]
+        single_line_words = single_line.split(" ")
+
+        for s in single_line_words:
+            if s[-1] == ":":
+                sno_col = s.replace(":", "")
+                self.metrics[sno_col] = list()
 
         for episode in self.processed_data[:-1]:
             if "WALL CLOCK TIME:" in episode[0]:
@@ -53,7 +67,16 @@ class TrainingAnalyzer():
             self.metrics['obs_mean'].append(float(episode[10]))
             self.metrics['obs_min'].append(float(episode[11]))
             self.metrics['obs_max'].append(float(episode[9]))
-            self.metrics['metrics_text'].append(episode[7])
+            #self.metrics['metrics_text'].append(episode[7])
+
+            single_line = episode[7].split(" ")
+            i=0
+            while i < len(single_line):
+                met = single_line[i].replace(":","")
+                if single_line[i+1] != "--":
+                    self.metrics[met].append( float(single_line[i+1]) )
+                i += 2
+            
 
     def graph_metrics_by_episode(self, metric_list=[['episode_reward','-','b']], stylesheet='seaborn', smooth=True):
         """
@@ -76,9 +99,19 @@ class TrainingAnalyzer():
         for i, metric in enumerate(data):
             metric = self.savitzky_golay(metric, 197, 2)
             if i == 0:
-                lines = plt.plot(self.metrics['episode'][:15000],metric[:15000],label=labels[i], color=colors[i])
+                if len(self.metrics['episode'][:15000]) != len(metric[:15000]):
+                    xvals = list(range(len(metric[:15000]))) 
+                    print("Didn't have data for all episodes for this metric " + labels[-1] )
+                else:
+                    xvals = self.metrics['episode'][:15000]
+                lines = plt.plot(xvals,metric[:15000],label=labels[i], color=colors[i])
             else:
-                line = (plt.plot(self.metrics['episode'],metric,label=labels[i], color=colors[i]))
+                if len(self.metrics['episode']) != len(metric):
+                    xvals = list(range(len(metric))) 
+                    print("Didn't have data for all episodes for this metric " + labels[-1] )
+                else:
+                    xvals = self.metrics['episode']
+                line = (plt.plot(xvals ,metric,label=labels[i], color=colors[i]))
                 lines.append(line[0])
 
         if len(labels) == 1:
@@ -116,15 +149,35 @@ class TrainingAnalyzer():
         return np.convolve( m[::-1], y, mode='valid')
 
 #DQN vs DQfD
-e = TrainingAnalyzer('./demonstrations/expert_lander_REWARD_DATA.txt')
-e.graph_metrics_by_episode(metric_list=[['episode_reward','-','grey']])
-e = TrainingAnalyzer('./demonstrations/student_lander15k_REWARD_DATA.txt')
-e.graph_metrics_by_episode(metric_list=[['episode_reward','-','purple']])
-demos = reward_threshold_subset(load_demo_data_from_file('./demonstrations/lunar_lander_demos.npy'), 0)
-demo_avg = demo_avg(demos)
-plt.plot([i for i in range(15000)],[demo_avg for i in range(15000)],color='blue')
-plt.legend(['PDD','DQfD','Demo Avg'])
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--logfiles', required=True)
+args = parser.parse_args()
+
+logfile_names = args.logfiles.split(",")
+colors = ['red','blue','purple','grey', 'green']
+
+if len(logfile_names)==1:
+    for f in range(len(logfile_names)):
+        e = TrainingAnalyzer(logfile_names[f])
+        col = colors[f%4]
+        e.graph_metrics_by_episode(metric_list=[ ['loss','-','red'], ['extrinsic_loss_loss','-','blue'],  ['curious_forward_output_loss','-', 'green' ]  ])
+
+    plt.show()
+
+
+for f in range(len(logfile_names)):
+    e = TrainingAnalyzer(logfile_names[f])
+    col = colors[f%4]
+    e.graph_metrics_by_episode(metric_list=[['episode_reward','-',col]])
+
+plt.legend(logfile_names)
 plt.show()
+
+
+
+
 
 # #Pretraining Lengths
 # e = TrainingAnalyzer('./model_saves/student_lander15k_REWARD_DATA.txt')
