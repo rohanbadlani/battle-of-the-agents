@@ -80,7 +80,7 @@ plot_file_prefix = None
 processor = None
 
 if args.env == "Breakout":
-    env = gym.make("Breakout-v0")
+    env = gym.make("BreakoutNoFrameskip-v4")
     demonstrations_file = "breakout_demos.npy"
     plot_file_prefix = "breakout_"
     processor = AtariProcessor()
