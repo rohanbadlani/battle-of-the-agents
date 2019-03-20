@@ -31,6 +31,8 @@ parser.add_argument('--filename_append',default='')
 parser.add_argument('--model',choices=['student','expert','curious_expert','curious_student'],default='expert')
 parser.add_argument('--env',choices=['LunarLander', 'Breakout'],default='LunarLander')
 parser.add_argument('--curiosity_during_expert_phase',choices=['True', 'False'],default='True')
+parser.add_argument('--demo_data')
+parser.add_argument('--weights_file')
 args = parser.parse_args()
 
 ATARI_INPUT_SHAPE = (84, 84)
@@ -299,8 +301,11 @@ if __name__ == "__main__":
                 dqn.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
                 dqn.save_weights(weights_filename, overwrite=True)
             if args.mode == 'test':
-                dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_weights.h5f')
-                dqn.test(env, nb_episodes=5, visualize=True, verbose=2, nb_max_start_steps=30)
+                if args.weights_file:
+                    dqn.load_weights(args.weights_file)
+                else:
+                    dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_weights.h5f')
+                dqn.test(env, nb_episodes=100, visualize=False, verbose=2, nb_max_start_steps=30)
             if args.mode == 'demonstrate':
                 dqn.load_weights(model_saves + filename_append + "_" + datestr + "_"  + 'expert_' + environment_name + '_weights.h5f')
                 demonstrate(dqn, env, 75000, model_saves + demonstrations_file)
@@ -341,7 +346,12 @@ if __name__ == "__main__":
 
     if args.model == 'curious_student':
         # load expert data
-        expert_demo_data = load_demo_data_from_file(model_saves + demonstrations_file)
+        if args.demo_data is None:
+            print("Need Demo data")
+            assert 0 
+        else:
+            print("Loading demo data from " + args.demo_data)
+        expert_demo_data = load_demo_data_from_file(args.demo_data)
         expert_demo_data = reward_threshold_subset(expert_demo_data,0)
         print(expert_demo_data.shape)
         expert_demo_data = processor.process_demo_data(expert_demo_data)
