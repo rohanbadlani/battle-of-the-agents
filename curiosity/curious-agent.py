@@ -338,8 +338,13 @@ if __name__ == "__main__":
             dqn.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
             dqn.save_weights(weights_filename, overwrite=True)
         if args.mode == 'test':
-            dqn.load_weights(model_saves + 'expert_' + environment_name + '_weights.h5f')
-            dqn.test(env, nb_episodes=5, visualize=True, verbose=2, nb_max_start_steps=30)
+            if args.weights_file:
+                weights_to_load = args.weights_file
+            else:
+                weights_to_load = model_saves + 'student_' + environment_name + '15k_weights.h5f'
+            print("Loading weights from " + weights_to_load )
+            dqn.load_weights( weights_to_load )
+            dqn.test(env, nb_episodes=100, visualize=False, verbose=2, nb_max_start_steps=30)
         if args.mode == 'demonstrate':
             dqn.load_weights(model_saves + 'expert_' + environment_name + '_weights.h5f')
             demonstrate(dqn, env, 75000, model_saves + demonstrations_file)
