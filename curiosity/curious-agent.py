@@ -376,8 +376,13 @@ if __name__ == "__main__":
             dqfd.fit(env, callbacks=callbacks, nb_steps=4250000, verbose=0, nb_max_episode_steps=1500)
             dqfd.save_weights(weights_filename, overwrite=True)
         if args.mode == 'test':
-            dqfd.load_weights(model_saves + 'student_' + environment_name + '15k_weights.h5f')
-            dqfd.test(env, nb_episodes=12, visualize=True, verbose=2, nb_max_start_steps=30)
+            if args.weights_file:
+                weights_to_load = args.weights_file
+            else:
+                weights_to_load = model_saves + 'student_' + environment_name + '15k_weights.h5f'
+            print("Loading weights from " + weights_to_load )
+            dqfd.load_weights( weights_to_load )
+            dqfd.test(env, nb_episodes=100, visualize=False, verbose=2, nb_max_start_steps=30)
         if args.mode == 'demonstrate':
             print("Curious DQfD cannot demonstrate.")
 
