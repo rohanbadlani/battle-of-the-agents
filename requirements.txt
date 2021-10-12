@@ -30,7 +30,7 @@ mkl-random==1.0.2
 more-itertools==6.0.0
 mpi4py==3.0.1
 numpy==1.15.4
-opencv-python==4.0.0.21
+opencv-python==4.1.1.26
 pandas==0.24.1
 Pillow==5.4.1
 pluggy==0.8.1
