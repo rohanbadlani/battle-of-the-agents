@@ -18,7 +18,7 @@ gast==0.2.2
 glob2==0.6
 grpcio==1.18.0
 -e git+https://github.com/openai/gym.git@17abad35ae82cf01ff4dc962ffd63e3d849d3903#egg=gym
-html5lib==0.9999999
+html5lib==0.999999999
 idna==2.8
 imageio==2.5.0
 joblib==0.13.2
