@@ -6,7 +6,7 @@ attrs==18.2.0
 -e git+https://github.com/openai/baselines.git@5b41c926c7a852df3f0928afdf2429f96a3965cb#egg=baselines
 bleach==1.5.0
 box2d-py==2.3.8
-certifi==2018.11.29
+certifi==2022.12.7
 chardet==3.0.4
 Click==7.0
 cloudpickle==0.8.0
